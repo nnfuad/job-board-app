@@ -1,39 +1,30 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import jobRoutes from './routes/jobRoutes.js';
-import errorHandler from './middleware/errorHandler.js';
-
-dotenv.config();
-
-const app = express();
-
-// Middleware
+// ✅ server/src/app.js - PROPER DB INITIALIZATION & CORS
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: process.env.FRONTEND_URL || 'http://localhost',  // ← FIXED
   credentials: true,
 }));
-app.use(express.json());
 
-// Routes
-app.use('/api/v1', jobRoutes);
+// Initialize database with retry logic
+const initDB = async () => {
+  if (dbInitialized) return;
+  try {
+    console.log('🔧 Initializing database...');
+    await initializeDatabase();
+    await seedDatabase();
+    dbInitialized = true;
+    console.log('✅ Database ready!');
+  } catch (error) {
+    console.error('❌ Database initialization error:', error.message);
+    setTimeout(initDB, 2000); // Retry
+  }
+};
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+app.get('/', (req, res) => {  // ← DEBUG ENDPOINT
+  res.json({
+    message: 'JobBoard API v1',
+    endpoints: {
+      health: '/health',
+      jobs: '/api/v1/jobs',
+    },
+  });
 });
-
-// Error handling
-app.use(errorHandler);
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
-
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
-
-export default app;
